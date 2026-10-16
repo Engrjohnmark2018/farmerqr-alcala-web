@@ -13,13 +13,16 @@ LGU-RSBSA validation profile link:
 ## Features
 
 - 📱 Camera QR scanning (works offline — library is vendored, no CDN needed)
+- 📲 **Installable PWA** — add to home screen, launches full-screen like a native app,
+  with an in-app **⬇ Install** button
+- 📴 **Works offline** — a service worker caches the whole app shell, so the scanner
+  opens even without internet (only the profile pages need a connection)
 - 🟢 Branded launch splash + animated scan frame (corner brackets + sweep line)
 - 📳 **Beep + vibration** feedback on every successful scan
 - 🔗 Link **opens automatically** in the browser, with an on-screen
   **Open Farmer Profile** button fallback (for browsers that block pop-ups)
 - 🔦 Flashlight toggle for field use
 - 📋 Copy Link / Scan Next for batch scanning
-- 📲 "Add to Home Screen" support (PWA manifest + icons)
 
 > Web version of the **FarmerQR-Alcala** Android app (v1.1) — identical
 > QR → link logic.
@@ -33,9 +36,10 @@ farmerqr-alcala-web/
 ├── index.html                 # App page
 ├── css/style.css              # Styling (matches the Android app's green theme)
 ├── js/app.js                  # Scanner + link + feedback logic
+├── sw.js                      # Service worker (PWA install + offline app shell)
 ├── lib/html5-qrcode.min.js    # QR scanner library (vendored)
-├── icons/                     # App icons (favicon + PWA)
-├── manifest.json              # "Add to Home Screen" support
+├── icons/                     # App icons (favicon + PWA + install sheet)
+├── manifest.json              # PWA manifest (install, shortcuts, screenshots)
 ├── .nojekyll                  # Tell GitHub Pages not to process with Jekyll
 └── README.md
 ```
@@ -67,10 +71,15 @@ No build step. No server code. Everything is static.
 4. After ~1 minute your app is live at:
    `https://<your-username>.github.io/farmerqr-alcala-web/`
 
-### 📱 Add to Home Screen (recommended for field staff)
+### 📱 Install as an app (recommended for field staff)
 
-On an Android phone, open the site in Chrome → menu (⋮) → **Add to Home screen**.
-It then launches full-screen like a native app.
+Open the site on an Android phone:
+
+- Chrome will offer **Add to Home screen** — or tap the in-app **⬇ Install**
+  button in the header — and the app installs full-screen with its own icon,
+  like a native app.
+- Once installed, the **scanner works even without internet** (the profile
+  pages still need a connection to load).
 
 ---
 

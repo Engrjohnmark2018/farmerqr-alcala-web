@@ -37,11 +37,27 @@
   var lastOpenAt = 0;
   var copyResetTimer = null;
 
+  /* ---------- Screenshot / demo mode (?screen=splash|scan|result) ---------- */
+
+  var screenMode = null;
+  try {
+    screenMode = new URLSearchParams(window.location.search).get("screen");
+  } catch (e) {}
+  var isDemo = screenMode === "scan" || screenMode === "result";
+
   /* ---------- Splash ---------- */
 
-  window.setTimeout(function () {
-    if (els.splash) els.splash.classList.add("hide");
-  }, 700);
+  if (screenMode !== "splash") {
+    window.setTimeout(function () {
+      if (els.splash) els.splash.classList.add("hide");
+    }, isDemo ? 0 : 700);
+  }
+
+  if (isDemo) {
+    // Simulated camera scene for screenshots (no real camera needed).
+    document.getElementById("reader-wrap").classList.add("demo-camera");
+    els.torchBtn.hidden = false; // show the flashlight control in screenshots
+  }
 
   /* ---------- Link building (same logic as the Android app) ---------- */
 
@@ -306,8 +322,53 @@
     if (!scanning && els.result.hidden) resumeScanner();
   });
 
-  /* Auto-start the scanner on page load. */
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  /* ---------- PWA: service worker + install prompt ---------- */
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
+
+  var deferredInstall = null;
+  var installBtn = document.getElementById("installBtn");
+
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    deferredInstall = e;
+    if (installBtn) installBtn.hidden = false;
+  });
+
+  if (installBtn) {
+    installBtn.addEventListener("click", function () {
+      if (!deferredInstall) return;
+      deferredInstall.prompt();
+      deferredInstall.userChoice.finally(function () {
+        deferredInstall = null;
+        installBtn.hidden = true;
+      });
+    });
+  }
+
+  window.addEventListener("appinstalled", function () {
+    if (installBtn) installBtn.hidden = true;
+  });
+
+  /* Demo / screenshot mode: pinned UI states, no camera. */
+  if (isDemo) {
+    els.overlay.hidden = false;
+    if (screenMode === "scan") {
+      setHint("Point the camera at the farmer's QR code");
+    } else {
+      var demoCode = "02-015-02-003-21LOBB";
+      showResult(demoCode, buildProfileUrl(demoCode));
+      setHint("QR detected — opening profile…");
+      try {
+        els.result.scrollIntoView({ block: "end" });
+      } catch (e) {}
+    }
+  } else if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    /* Auto-start the scanner on page load. */
     startScanner();
   } else {
     setHint("Camera API is not available in this browser. Open the page in Chrome, Edge, or Safari on a phone.");

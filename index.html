@@ -60,6 +60,7 @@
         <h1>FarmerQR-Alcala</h1>
         <p class="subtitle">RSBSA QR VALIDATOR</p>
       </div>
+      <button id="installBtn" class="install-btn" type="button" hidden>⬇ Install</button>
     </div>
   </header>
 
@@ -69,6 +70,33 @@
     <section class="card" aria-label="QR scanner">
       <div id="reader-wrap">
         <div id="reader"></div>
+        <!-- Demo scene shown only in screenshot mode (?screen=scan|result) -->
+        <div class="fake-scene" aria-hidden="true">
+          <div class="fake-card">
+            <svg viewBox="0 0 108 108">
+              <rect width="108" height="108" fill="#ffffff"/>
+              <rect x="12" y="12" width="26" height="26" fill="#1a2e12"/>
+              <rect x="18" y="18" width="14" height="14" fill="#ffffff"/>
+              <rect x="22" y="22" width="6" height="6" fill="#1a2e12"/>
+              <rect x="70" y="12" width="26" height="26" fill="#1a2e12"/>
+              <rect x="76" y="18" width="14" height="14" fill="#ffffff"/>
+              <rect x="80" y="22" width="6" height="6" fill="#1a2e12"/>
+              <rect x="12" y="70" width="26" height="26" fill="#1a2e12"/>
+              <rect x="18" y="76" width="14" height="14" fill="#ffffff"/>
+              <rect x="22" y="80" width="6" height="6" fill="#1a2e12"/>
+              <rect x="50" y="50" width="8" height="8" fill="#1a2e12"/>
+              <rect x="64" y="50" width="8" height="8" fill="#1a2e12"/>
+              <rect x="58" y="58" width="8" height="8" fill="#1a2e12"/>
+              <rect x="76" y="64" width="8" height="8" fill="#1a2e12"/>
+              <rect x="50" y="76" width="8" height="8" fill="#1a2e12"/>
+              <rect x="64" y="82" width="8" height="8" fill="#1a2e12"/>
+              <rect x="84" y="84" width="8" height="8" fill="#1a2e12"/>
+              <rect x="42" y="30" width="6" height="6" fill="#1a2e12"/>
+              <rect x="30" y="42" width="6" height="6" fill="#1a2e12"/>
+            </svg>
+            <p>02-015-02-003-21LOBB</p>
+          </div>
+        </div>
         <!-- Animated scan frame: scrim + corner brackets + sweep line -->
         <div class="scan-overlay" id="scanOverlay" hidden>
           <div class="scan-window">

@@ -109,6 +109,24 @@ h1 {
   letter-spacing: 0.12em;
 }
 
+.install-btn {
+  margin-left: auto;
+  flex: none;
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 9px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.install-btn:active {
+  background: rgba(255, 255, 255, 0.28);
+}
+
 /* ---------- Layout ---------- */
 
 main {
@@ -325,6 +343,49 @@ footer {
   color: var(--text-soft);
   font-size: 0.82rem;
   padding-bottom: 8px;
+}
+
+/* ---------- Demo / screenshot mode ---------- */
+
+.fake-scene { display: none; }
+
+#reader-wrap.demo-camera {
+  aspect-ratio: 3 / 4;
+  background:
+    radial-gradient(circle at 30% 22%, rgba(102, 187, 106, 0.14), transparent 55%),
+    linear-gradient(165deg, #243322 0%, #0e1410 55%, #1c2c18 100%);
+}
+
+#reader-wrap.demo-camera #reader { display: none; }
+
+#reader-wrap.demo-camera .fake-scene {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fake-card {
+  width: min(52vw, 210px);
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 14px 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.fake-card svg {
+  width: 100%;
+  display: block;
+}
+
+.fake-card p {
+  margin: 8px 0 2px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.62rem;
+  color: #22331c;
+  letter-spacing: 0.02em;
 }
 
 [hidden] { display: none !important; }
