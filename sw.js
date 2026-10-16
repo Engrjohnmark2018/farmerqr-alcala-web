@@ -10,7 +10,7 @@
  *   - Other origins (e.g. lgu-rsbsa.da.gov.ph): never intercepted.
  */
 
-var CACHE = "farmerqr-alcala-v1.1.1";
+var CACHE = "farmerqr-alcala-v1.1.2";
 
 var ASSETS = [
   "./",

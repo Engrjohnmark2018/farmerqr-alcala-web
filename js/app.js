@@ -18,8 +18,15 @@
 
   var els = {
     splash: document.getElementById("splash"),
+    reader: document.getElementById("reader"),
     overlay: document.getElementById("scanOverlay"),
     hint: document.getElementById("hint"),
+    zoomWrap: document.getElementById("zoomWrap"),
+    zoomSlider: document.getElementById("zoomSlider"),
+    zoomVal: document.getElementById("zoomVal"),
+    zoomInBtn: document.getElementById("zoomInBtn"),
+    zoomOutBtn: document.getElementById("zoomOutBtn"),
+    switchCameraBtn: document.getElementById("switchCameraBtn"),
     torchBtn: document.getElementById("torchBtn"),
     result: document.getElementById("result"),
     scannedCode: document.getElementById("scannedCode"),
@@ -36,6 +43,19 @@
   var lastCodeAt = 0;
   var lastOpenAt = 0;
   var copyResetTimer = null;
+
+  // Camera state & features
+  var currentFacingMode = "environment"; // "environment" or "user"
+  var currentZoom = 1;
+  var minZoom = 1;
+  var maxZoom = 5;
+  var zoomStep = 0.1;
+  var hasHardwareZoom = false;
+
+  // Video freeze watchdog
+  var lastFrameTime = 0;
+  var freezeCheckTimer = null;
+  var isRecoveringFreeze = false;
 
   /* ---------- Screenshot / demo mode (?screen=splash|scan|result) ---------- */
 
@@ -156,6 +176,15 @@
 
   /* ---------- Scanner control ---------- */
 
+  function updateMirrorMode() {
+    if (!els.reader) return;
+    if (currentFacingMode === "user") {
+      els.reader.classList.add("mirrored");
+    } else {
+      els.reader.classList.remove("mirrored");
+    }
+  }
+
   function ensureScanner() {
     if (html5Qrcode) return;
     html5Qrcode = new Html5Qrcode("reader", {
@@ -172,12 +201,13 @@
     }
     ensureScanner();
     setHint("Starting camera…");
+    updateMirrorMode();
 
     html5Qrcode
       .start(
-        { facingMode: "environment" },
+        { facingMode: currentFacingMode },
         {
-          fps: 10,
+          fps: 15,
           qrbox: function (viewfinderWidth, viewfinderHeight) {
             var size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.7);
             return { width: size, height: size };
@@ -189,11 +219,15 @@
       .then(function () {
         scanning = true;
         els.overlay.hidden = false;
+        updateMirrorMode();
         detectTorch();
+        detectZoom();
+        startFreezeWatchdog();
         setHint("Point the camera at the farmer's QR code");
       })
       .catch(function (err) {
         scanning = false;
+        stopFreezeWatchdog();
         els.overlay.hidden = true;
         var reason = err && err.message ? err.message : String(err);
         setHint(
@@ -204,6 +238,7 @@
   }
 
   function stopScanner() {
+    stopFreezeWatchdog();
     if (!html5Qrcode || !scanning) return;
     html5Qrcode
       .stop()
@@ -212,6 +247,7 @@
         torchOn = false;
         els.overlay.hidden = true;
         els.torchBtn.hidden = true;
+        els.zoomWrap.hidden = true;
         setHint("Scanner stopped. Tap the page to scan again.");
       })
       .catch(function () {});
@@ -222,6 +258,7 @@
     if (html5Qrcode && scanning) {
       try {
         html5Qrcode.resume();
+        startFreezeWatchdog();
         setHint("Point the camera at the farmer's QR code");
         return;
       } catch (e) {}
@@ -229,10 +266,169 @@
     startScanner();
   }
 
+  function switchCamera() {
+    currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+    updateMirrorMode();
+
+    if (scanning && html5Qrcode) {
+      stopFreezeWatchdog();
+      html5Qrcode
+        .stop()
+        .then(function () {
+          scanning = false;
+          torchOn = false;
+          els.torchBtn.classList.remove("on");
+          els.torchBtn.hidden = true;
+          startScanner();
+        })
+        .catch(function () {
+          scanning = false;
+          startScanner();
+        });
+    }
+  }
+
+  /* ---------- Anti-Freeze Watchdog ---------- */
+
+  function startFreezeWatchdog() {
+    stopFreezeWatchdog();
+    lastFrameTime = 0;
+    var consecutiveStalls = 0;
+
+    freezeCheckTimer = setInterval(function () {
+      if (!scanning || isRecoveringFreeze || !els.result.hidden) return;
+
+      var video = document.querySelector("#reader video");
+      if (!video) return;
+
+      // Check if video is paused, ended, or playback time is frozen
+      if (video.paused || video.ended) {
+        try { video.play(); } catch (e) {}
+        return;
+      }
+
+      var curTime = video.currentTime;
+      if (curTime > 0 && curTime === lastFrameTime) {
+        consecutiveStalls++;
+        if (consecutiveStalls >= 3) { // 3 seconds stuck
+          console.warn("Camera video stream freeze detected. Recovering…");
+          consecutiveStalls = 0;
+          recoverFrozenCamera();
+        }
+      } else {
+        consecutiveStalls = 0;
+        lastFrameTime = curTime;
+      }
+    }, 1000);
+  }
+
+  function stopFreezeWatchdog() {
+    if (freezeCheckTimer) {
+      clearInterval(freezeCheckTimer);
+      freezeCheckTimer = null;
+    }
+  }
+
+  function recoverFrozenCamera() {
+    if (isRecoveringFreeze || !scanning) return;
+    isRecoveringFreeze = true;
+    setHint("Re-aligning camera feed…");
+
+    var video = document.querySelector("#reader video");
+    if (video) {
+      try { video.play(); } catch (e) {}
+    }
+
+    if (html5Qrcode) {
+      html5Qrcode
+        .stop()
+        .catch(function () {})
+        .finally(function () {
+          scanning = false;
+          isRecoveringFreeze = false;
+          startScanner();
+        });
+    } else {
+      isRecoveringFreeze = false;
+      startScanner();
+    }
+  }
+
+  /* ---------- Zoom Feature (Hardware + CSS fallback) ---------- */
+
+  function detectZoom() {
+    hasHardwareZoom = false;
+    minZoom = 1;
+    maxZoom = 5;
+    zoomStep = 0.1;
+
+    try {
+      if (typeof html5Qrcode.getRunningTrackCameraCapabilities === "function") {
+        var caps = html5Qrcode.getRunningTrackCameraCapabilities();
+        if (caps && typeof caps.zoomFeature === "function" && caps.zoomFeature().isSupported()) {
+          var zf = caps.zoomFeature();
+          minZoom = zf.min();
+          maxZoom = zf.max();
+          zoomStep = zf.step() || 0.1;
+          hasHardwareZoom = true;
+        }
+      }
+    } catch (e) {}
+
+    // Configure slider
+    els.zoomSlider.min = minZoom;
+    els.zoomSlider.max = maxZoom;
+    els.zoomSlider.step = zoomStep;
+    currentZoom = Math.max(minZoom, Math.min(currentZoom, maxZoom));
+    els.zoomSlider.value = currentZoom;
+    els.zoomVal.textContent = Number(currentZoom).toFixed(1) + "×";
+    els.zoomWrap.hidden = false;
+
+    applyZoom(currentZoom);
+  }
+
+  function applyZoom(zoomVal) {
+    zoomVal = Math.max(minZoom, Math.min(Number(zoomVal), maxZoom));
+    currentZoom = zoomVal;
+    els.zoomSlider.value = zoomVal;
+    els.zoomVal.textContent = Number(zoomVal).toFixed(1) + "×";
+
+    var appliedHardware = false;
+    if (hasHardwareZoom) {
+      try {
+        var caps = html5Qrcode.getRunningTrackCameraCapabilities();
+        if (caps && typeof caps.zoomFeature === "function") {
+          caps.zoomFeature().apply(zoomVal);
+          appliedHardware = true;
+        }
+      } catch (e) {}
+    }
+
+    // If hardware zoom is not supported or failed, use smooth CSS video scaling
+    var video = document.querySelector("#reader video");
+    if (video) {
+      if (appliedHardware) {
+        video.style.transformOrigin = "";
+        // Keep mirror transform if front-facing
+        video.style.transform = "";
+      } else {
+        video.style.transformOrigin = "center center";
+        var mirrorScale = currentFacingMode === "user" ? -1 : 1;
+        video.style.transform = "scaleX(" + (zoomVal * mirrorScale) + ") scaleY(" + zoomVal + ")";
+      }
+    }
+  }
+
+  function stepZoom(direction) {
+    var delta = (maxZoom - minZoom) * 0.15;
+    var target = currentZoom + (direction * delta);
+    applyZoom(target);
+  }
+
   /* ---------- Flashlight (torch) ---------- */
 
   function detectTorch() {
-    var supported = true;
+    var supported = false;
     try {
       if (typeof html5Qrcode.getRunningTrackCameraCapabilities === "function") {
         var caps = html5Qrcode.getRunningTrackCameraCapabilities();
@@ -315,11 +511,38 @@
 
   /* ---------- Wire up events ---------- */
 
+  els.switchCameraBtn.addEventListener("click", switchCamera);
+  els.zoomSlider.addEventListener("input", function (e) {
+    applyZoom(Number(e.target.value));
+  });
+  els.zoomInBtn.addEventListener("click", function () {
+    stepZoom(1);
+  });
+  els.zoomOutBtn.addEventListener("click", function () {
+    stepZoom(-1);
+  });
+
   els.torchBtn.addEventListener("click", toggleTorch);
   els.copyBtn.addEventListener("click", copyLink);
   els.nextBtn.addEventListener("click", resumeScanner);
   document.getElementById("reader-wrap").addEventListener("click", function () {
     if (!scanning && els.result.hidden) resumeScanner();
+  });
+
+  // Handle tab/screen switching to avoid camera feed getting stuck or frozen
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      stopFreezeWatchdog();
+    } else {
+      if (scanning && els.result.hidden) {
+        startFreezeWatchdog();
+        // If camera stream paused during app switch or screen lock, resume it
+        var video = document.querySelector("#reader video");
+        if (video && video.paused) {
+          try { video.play(); } catch (e) {}
+        }
+      }
+    }
   });
 
   /* ---------- PWA: service worker + install prompt ---------- */

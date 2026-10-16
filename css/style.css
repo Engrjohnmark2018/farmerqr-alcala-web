@@ -227,12 +227,72 @@ main {
   to   { top: 94%; }
 }
 
-/* ---------- Hint pill + torch ---------- */
+/* Front camera mirror mode */
+#reader.mirrored video {
+  transform: scaleX(-1);
+  -webkit-transform: scaleX(-1);
+}
+
+/* ---------- Hint pill, zoom & action controls ---------- */
 
 .bottom-controls {
   margin-top: 14px;
+  display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 12px;
+}
+
+/* Zoom control */
+.zoom-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--line);
+  padding: 6px 14px;
+  border-radius: 999px;
+  max-width: 90%;
+  width: 280px;
+  backdrop-filter: blur(4px);
+}
+
+.zoom-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 1.1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  user-select: none;
+}
+
+.zoom-btn:active {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.zoom-slider {
+  flex: 1;
+  accent-color: var(--green-glow);
+  cursor: pointer;
+  height: 5px;
+}
+
+.zoom-val {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  color: var(--green-light);
+  min-width: 34px;
+  text-align: right;
+  font-weight: 600;
 }
 
 .hint.pill {
@@ -243,12 +303,20 @@ main {
   padding: 11px 20px;
   border-radius: 26px;
   text-align: center;
+  max-width: 100%;
 }
 
-.torch {
-  margin-top: 16px;
-  width: 64px;
-  height: 64px;
+.camera-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.action-btn {
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   border: 1.5px solid rgba(255, 255, 255, 0.4);
   background: rgba(0, 0, 0, 0.35);
@@ -258,9 +326,15 @@ main {
   justify-content: center;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: background 0.2s, transform 0.1s;
 }
 
-.torch.on {
+.action-btn:active {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.action-btn.torch.on {
   background: var(--green);
   border-color: rgba(255, 255, 255, 0.2);
 }
