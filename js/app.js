@@ -1,0 +1,315 @@
+/* FarmerQR-Alcala — RSBSA QR Validator (web version of the Android app v1.1)
+ *
+ * Scans a farmer's RSBSA QR code and opens the matching LGU-RSBSA
+ * validation profile page in the browser:
+ *
+ *   QR text:  02-015-02-003-21LOBB
+ *   Link:     https://lgu-rsbsa.da.gov.ph/validate-rsbsa-profile/02-015-02-003-21LOBB
+ *
+ * Scan success is confirmed with a beep + vibration, then the link opens
+ * automatically (with an on-screen button fallback).
+ */
+(function () {
+  "use strict";
+
+  var BASE_URL = "https://lgu-rsbsa.da.gov.ph/validate-rsbsa-profile/";
+  var RESCAN_COOLDOWN_MS = 2500;
+  var SAME_CODE_TTL_MS = 8000;
+
+  var els = {
+    splash: document.getElementById("splash"),
+    overlay: document.getElementById("scanOverlay"),
+    hint: document.getElementById("hint"),
+    torchBtn: document.getElementById("torchBtn"),
+    result: document.getElementById("result"),
+    scannedCode: document.getElementById("scannedCode"),
+    profileLink: document.getElementById("profileLink"),
+    openBtn: document.getElementById("openBtn"),
+    copyBtn: document.getElementById("copyBtn"),
+    nextBtn: document.getElementById("nextBtn"),
+  };
+
+  var html5Qrcode = null;
+  var scanning = false;
+  var torchOn = false;
+  var lastCode = null;
+  var lastCodeAt = 0;
+  var lastOpenAt = 0;
+  var copyResetTimer = null;
+
+  /* ---------- Splash ---------- */
+
+  window.setTimeout(function () {
+    if (els.splash) els.splash.classList.add("hide");
+  }, 700);
+
+  /* ---------- Link building (same logic as the Android app) ---------- */
+
+  function buildProfileUrl(scanned) {
+    var text = (scanned || "").trim();
+    // If the QR already contains a full URL, open it as-is.
+    if (/^https?:\/\//i.test(text)) return text;
+    return BASE_URL + encodeURIComponent(text);
+  }
+
+  /* ---------- Scan feedback (beep + vibration, like the app) ---------- */
+
+  function beep() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      var ctx = new Ctx();
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 1440;
+      gain.gain.value = 0.12;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.12);
+      window.setTimeout(function () {
+        try { ctx.close(); } catch (e) {}
+      }, 400);
+    } catch (e) {}
+  }
+
+  function vibrate() {
+    try {
+      if (navigator.vibrate) navigator.vibrate(180);
+    } catch (e) {}
+  }
+
+  function playSuccessFeedback() {
+    beep();
+    vibrate();
+  }
+
+  /* ---------- UI helpers ---------- */
+
+  function setHint(msg) {
+    els.hint.textContent = msg;
+  }
+
+  function showResult(code, url) {
+    els.scannedCode.textContent = code;
+    els.profileLink.textContent = url;
+    els.profileLink.href = url;
+    els.openBtn.href = url;
+    els.result.hidden = false;
+  }
+
+  function hideResult() {
+    els.result.hidden = true;
+    els.scannedCode.textContent = "";
+    els.profileLink.textContent = "";
+    els.profileLink.removeAttribute("href");
+    els.openBtn.removeAttribute("href");
+  }
+
+  /* ---------- Scan handling ---------- */
+
+  function onScanSuccess(decodedText) {
+    var now = Date.now();
+    // Debounce: ignore re-reads of the same code and rapid repeats.
+    if (decodedText === lastCode && now - lastCodeAt < SAME_CODE_TTL_MS) return;
+    if (now - lastOpenAt < RESCAN_COOLDOWN_MS) return;
+    lastCode = decodedText;
+    lastCodeAt = now;
+    lastOpenAt = now;
+
+    var url = buildProfileUrl(decodedText);
+    playSuccessFeedback();
+    showResult(decodedText, url);
+    setHint("QR detected — opening profile…");
+
+    try {
+      if (html5Qrcode) html5Qrcode.pause(true);
+    } catch (e) {}
+
+    // Best-effort immediate open (a browser may block pop-ups that are not
+    // triggered by a tap — the "Open Farmer Profile" button always works).
+    var win = null;
+    try {
+      win = window.open(url, "_blank", "noopener");
+    } catch (e) {}
+    if (!win) {
+      setHint("Your browser blocked the automatic pop-up — tap “Open Farmer Profile” below.");
+    }
+  }
+
+  /* ---------- Scanner control ---------- */
+
+  function ensureScanner() {
+    if (html5Qrcode) return;
+    html5Qrcode = new Html5Qrcode("reader", {
+      verbose: false,
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+    });
+  }
+
+  function startScanner() {
+    if (scanning) return;
+    if (typeof Html5Qrcode === "undefined") {
+      setHint("Scanner library failed to load. Check that lib/html5-qrcode.min.js is present.");
+      return;
+    }
+    ensureScanner();
+    setHint("Starting camera…");
+
+    html5Qrcode
+      .start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: function (viewfinderWidth, viewfinderHeight) {
+            var size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.7);
+            return { width: size, height: size };
+          },
+        },
+        onScanSuccess,
+        function () {} // per-frame "no QR found" errors are expected — ignore
+      )
+      .then(function () {
+        scanning = true;
+        els.overlay.hidden = false;
+        detectTorch();
+        setHint("Point the camera at the farmer's QR code");
+      })
+      .catch(function (err) {
+        scanning = false;
+        els.overlay.hidden = true;
+        var reason = err && err.message ? err.message : String(err);
+        setHint(
+          "Could not start the camera (" + reason + "). " +
+          "Allow camera access and make sure the page is opened over HTTPS."
+        );
+      });
+  }
+
+  function stopScanner() {
+    if (!html5Qrcode || !scanning) return;
+    html5Qrcode
+      .stop()
+      .then(function () {
+        scanning = false;
+        torchOn = false;
+        els.overlay.hidden = true;
+        els.torchBtn.hidden = true;
+        setHint("Scanner stopped. Tap the page to scan again.");
+      })
+      .catch(function () {});
+  }
+
+  function resumeScanner() {
+    hideResult();
+    if (html5Qrcode && scanning) {
+      try {
+        html5Qrcode.resume();
+        setHint("Point the camera at the farmer's QR code");
+        return;
+      } catch (e) {}
+    }
+    startScanner();
+  }
+
+  /* ---------- Flashlight (torch) ---------- */
+
+  function detectTorch() {
+    var supported = true;
+    try {
+      if (typeof html5Qrcode.getRunningTrackCameraCapabilities === "function") {
+        var caps = html5Qrcode.getRunningTrackCameraCapabilities();
+        if (caps && typeof caps.torchFeature === "function") {
+          supported = caps.torchFeature().isSupported();
+        }
+      }
+    } catch (e) {}
+    els.torchBtn.hidden = !supported;
+  }
+
+  function toggleTorch() {
+    if (!html5Qrcode || !scanning) return;
+    var target = !torchOn;
+    var applied = false;
+
+    try {
+      if (typeof html5Qrcode.getRunningTrackCameraCapabilities === "function") {
+        var caps = html5Qrcode.getRunningTrackCameraCapabilities();
+        if (caps && typeof caps.torchFeature === "function" && caps.torchFeature().isSupported()) {
+          caps.torchFeature().apply(target);
+          applied = true;
+        }
+      }
+    } catch (e) {}
+
+    if (!applied) {
+      try {
+        html5Qrcode.applyVideoConstraints({ advanced: [{ torch: target }] });
+        applied = true;
+      } catch (e) {}
+    }
+
+    if (applied) {
+      torchOn = target;
+      els.torchBtn.classList.toggle("on", torchOn);
+      els.torchBtn.setAttribute("aria-pressed", torchOn ? "true" : "false");
+    } else {
+      els.torchBtn.hidden = true;
+      setHint("Flashlight is not available on this device.");
+    }
+  }
+
+  /* ---------- Copy link ---------- */
+
+  function copyLink() {
+    var url = els.profileLink.href;
+    if (!url) return;
+
+    function done() {
+      els.copyBtn.textContent = "Copied ✓";
+      clearTimeout(copyResetTimer);
+      copyResetTimer = setTimeout(function () {
+        els.copyBtn.textContent = "Copy Link";
+      }, 1500);
+    }
+
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = url;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+        done();
+      } catch (e) {
+        setHint("Copy is not supported — long-press the link above to copy it.");
+      }
+      document.body.removeChild(ta);
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  /* ---------- Wire up events ---------- */
+
+  els.torchBtn.addEventListener("click", toggleTorch);
+  els.copyBtn.addEventListener("click", copyLink);
+  els.nextBtn.addEventListener("click", resumeScanner);
+  document.getElementById("reader-wrap").addEventListener("click", function () {
+    if (!scanning && els.result.hidden) resumeScanner();
+  });
+
+  /* Auto-start the scanner on page load. */
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    startScanner();
+  } else {
+    setHint("Camera API is not available in this browser. Open the page in Chrome, Edge, or Safari on a phone.");
+  }
+})();

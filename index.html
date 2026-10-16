@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>FarmerQR-Alcala — RSBSA QR Validator</title>
+  <meta name="description" content="Scan a farmer's RSBSA QR code and open the LGU-RSBSA validation profile. Developed by ENGR JOHN MARK C. CONTILLO.">
+  <meta name="theme-color" content="#2E7D32">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Launch splash (mirrors the Android app) -->
+  <div id="splash" aria-hidden="true">
+    <svg class="splash-logo" viewBox="0 0 108 108">
+      <rect x="26" y="26" width="20" height="20" rx="3" fill="none" stroke="#fff" stroke-width="4"/>
+      <rect x="33" y="33" width="6" height="6" fill="#fff"/>
+      <rect x="62" y="26" width="20" height="20" rx="3" fill="none" stroke="#fff" stroke-width="4"/>
+      <rect x="69" y="33" width="6" height="6" fill="#fff"/>
+      <rect x="26" y="62" width="20" height="20" rx="3" fill="none" stroke="#fff" stroke-width="4"/>
+      <rect x="33" y="69" width="6" height="6" fill="#fff"/>
+      <rect x="62" y="62" width="6" height="6" fill="#fff"/>
+      <rect x="74" y="62" width="6" height="6" fill="#fff"/>
+      <rect x="68" y="68" width="6" height="6" fill="#fff"/>
+      <rect x="80" y="74" width="6" height="6" fill="#fff"/>
+      <rect x="62" y="80" width="6" height="6" fill="#fff"/>
+      <rect x="74" y="80" width="6" height="6" fill="#fff"/>
+    </svg>
+    <h1>FarmerQR-Alcala</h1>
+    <p>RSBSA QR VALIDATOR</p>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 108 108" aria-hidden="true">
+        <rect width="108" height="108" rx="18" fill="#2E7D32"/>
+        <rect x="24" y="24" width="24" height="24" fill="#fff"/>
+        <rect x="30" y="30" width="12" height="12" fill="#2E7D32"/>
+        <rect x="33" y="33" width="6" height="6" fill="#fff"/>
+        <rect x="60" y="24" width="24" height="24" fill="#fff"/>
+        <rect x="66" y="30" width="12" height="12" fill="#2E7D32"/>
+        <rect x="69" y="33" width="6" height="6" fill="#fff"/>
+        <rect x="24" y="60" width="24" height="24" fill="#fff"/>
+        <rect x="30" y="66" width="12" height="12" fill="#2E7D32"/>
+        <rect x="33" y="69" width="6" height="6" fill="#fff"/>
+        <rect x="60" y="60" width="6" height="6" fill="#fff"/>
+        <rect x="72" y="60" width="6" height="6" fill="#fff"/>
+        <rect x="66" y="66" width="6" height="6" fill="#fff"/>
+        <rect x="78" y="72" width="6" height="6" fill="#fff"/>
+        <rect x="60" y="78" width="6" height="6" fill="#fff"/>
+        <rect x="72" y="78" width="6" height="6" fill="#fff"/>
+      </svg>
+      <div>
+        <h1>FarmerQR-Alcala</h1>
+        <p class="subtitle">RSBSA QR VALIDATOR</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- Scanner -->
+    <section class="card" aria-label="QR scanner">
+      <div id="reader-wrap">
+        <div id="reader"></div>
+        <!-- Animated scan frame: scrim + corner brackets + sweep line -->
+        <div class="scan-overlay" id="scanOverlay" hidden>
+          <div class="scan-window">
+            <span class="corner tl"></span>
+            <span class="corner tr"></span>
+            <span class="corner bl"></span>
+            <span class="corner br"></span>
+            <div class="sweep"></div>
+          </div>
+        </div>
+      </div>
+      <div class="controls bottom-controls">
+        <p class="hint pill" id="hint">Point the camera at the farmer's QR code</p>
+        <button id="torchBtn" class="torch" type="button" hidden aria-label="Toggle flashlight" aria-pressed="false">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7 2h3v11h3v9l7-12h-4l4-8z" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- Scan result -->
+    <section class="card result" id="result" hidden aria-live="polite">
+      <h2>✅ QR detected — opening profile…</h2>
+      <div class="code" id="scannedCode"></div>
+      <a class="profile-link" id="profileLink" target="_blank" rel="noopener noreferrer"></a>
+      <div class="controls">
+        <a class="btn primary big" id="openBtn" target="_blank" rel="noopener noreferrer">Open Farmer Profile</a>
+        <button class="btn" id="copyBtn" type="button">Copy Link</button>
+        <button class="btn" id="nextBtn" type="button">Scan Next</button>
+      </div>
+    </section>
+
+    <footer>
+      <p>Developed by: ENGR JOHN MARK C. CONTILLO</p>
+    </footer>
+
+  </main>
+
+  <script src="lib/html5-qrcode.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
